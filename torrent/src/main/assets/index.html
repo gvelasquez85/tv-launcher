@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administrador de la TV</title>
+<style>
+  :root { --bg:#0e1116; --card:#171c24; --line:#252c38; --txt:#e8ecf2; --mut:#8b95a5; --acc:#4f8cff; --ok:#38c172; --bad:#ef5350; --warn:#f0a020; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f5f7fa; --card:#fff; --line:#e1e6ee; --txt:#1b2330; --mut:#677184; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 20px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 24px 0 10px; color: var(--mut); font-weight: 600; letter-spacing:.03em; text-transform: uppercase; }
+  .sub { color: var(--mut); margin-bottom: 14px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; margin: 10px 0 4px; }
+  .chip { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; color: var(--mut); }
+  .chip.ok { color: var(--ok); border-color: var(--ok); } .chip.warn { color: var(--warn); border-color: var(--warn); } .chip.bad { color: var(--bad); border-color: var(--bad); }
+  nav { display:flex; gap:6px; margin: 16px 0 8px; border-bottom: 1px solid var(--line); }
+  nav button { background: transparent; color: var(--mut); border: 0; border-bottom: 3px solid transparent; border-radius: 0; padding: 10px 14px; font-weight: 600; }
+  nav button.on { color: var(--txt); border-bottom-color: var(--acc); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .banner { border-radius: 10px; padding: 10px 14px; margin: 10px 0; border: 1px solid var(--warn); color: var(--warn); }
+  form, .row { display:flex; align-items:center; gap:10px; } form { gap:8px; }
+  input[type=text], input[type=password], select { padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--txt); font: inherit; min-width: 0; }
+  input[type=text], input[type=password] { flex: 1; }
+  button { padding: 9px 14px; border-radius: 10px; border: 0; background: var(--acc); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+  button.ghost { background: transparent; color: var(--txt); border:1px solid var(--line); font-weight:500; }
+  button.bad { background: transparent; color: var(--bad); border:1px solid var(--line); font-weight:500; }
+  button:disabled { opacity:.5; cursor: default; }
+  .grow { flex:1; min-width:0; } .name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .meta { color: var(--mut); font-size: 13px; }
+  .prog { height:6px; border-radius:6px; background: var(--line); overflow:hidden; margin: 8px 0 2px; } .prog > i { display:block; height:100%; background: var(--acc); }
+  .done .prog > i { background: var(--ok); }
+  #msg, #bmsg, #smsg { margin: 10px 0 0; min-height: 20px; } .err { color: var(--bad); } .okc { color: var(--ok); }
+  .empty { color: var(--mut); padding: 10px 2px; }
+  table { width:100%; border-collapse: collapse; } th { text-align:left; color: var(--mut); font-weight:600; font-size:13px; padding: 6px 4px; }
+  td { padding: 6px 4px; border-top: 1px solid var(--line); vertical-align: middle; } td select { width: 100%; }
+  .key { font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  .acts { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; } .acts button { padding:6px 11px; font-size:13px; }
+  .det { margin-top:10px; border-top:1px solid var(--line); padding-top:10px; font-size:13px; }
+  .det h3 { font-size:12px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; margin:12px 0 4px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap:8px; } .grid div { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 10px; } .grid b { display:block; font-size:15px; }
+  .frow { display:flex; gap:10px; padding:3px 0; align-items:center; } .frow .fn { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pill { background:var(--card); border:1px solid var(--warn); color:var(--warn); } .pill.on { background:var(--warn); color:#111; }
+  .panel { display:none; } .panel.on { display:block; }
+  .field { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin: 8px 0; } .field label { min-width: 150px; color: var(--mut); }
+  @media (max-width: 600px) { form, .row { flex-wrap: wrap; } .field label { min-width: 100%; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Administrador de la TV</h1>
+  <div class="sub">Descargas, botones del control y ajustes, todo desde aquí.</div>
+  <div class="bar" id="chips"></div>
+  <div class="row" style="margin:8px 0"><button id="modebtn" class="ghost pill">Modo descarga</button><span class="meta" id="modehint">La TV apaga la pantalla, sigue bajando con bajo consumo y se deja apagar al terminar.</span></div>
+  <div id="banner"></div>
+
+  <nav>
+    <button data-tab="dl" class="on">Descargas</button>
+    <button data-tab="bt">Botones</button>
+    <button data-tab="st">Ajustes</button>
+  </nav>
+
+  <!-- ===================== DESCARGAS ===================== -->
+  <section class="panel on" id="p-dl">
+    <form id="f" class="card">
+      <input type="text" id="magnet" placeholder="magnet:?xt=urn:btih:..." autocomplete="off" spellcheck="false" aria-label="Enlace magnet">
+      <button id="add">Descargar</button>
+    </form>
+    <div id="msg" role="status"></div>
+    <h2>Descargas</h2><div id="dl"><div class="empty">Cargando...</div></div>
+    <h2>Biblioteca</h2><div id="lib"><div class="empty">Cargando...</div></div>
+  </section>
+
+  <!-- ===================== BOTONES ===================== -->
+  <section class="panel" id="p-bt">
+    <div class="sub">Programa los botones del control de la TV. Pulsa «Añadir botón» y luego el botón del control que quieras.</div>
+    <div class="row" style="margin-bottom:8px">
+      <button id="learn">Añadir botón</button>
+      <button id="savebt" class="ghost">Guardar cambios</button>
+      <span class="meta" id="learnhint"></span>
+    </div>
+    <div class="card"><table id="bt"><thead><tr><th>Botón</th><th>Acción</th><th>Destino</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="empty" id="btempty" style="display:none">Aún no hay botones programados.</div></div>
+    <div id="bmsg" role="status"></div>
+  </section>
+
+  <!-- ===================== AJUSTES ===================== -->
+  <section class="panel" id="p-st">
+    <h2>Clave del portal</h2>
+    <div class="card">
+      <div class="field"><label for="np1">Clave nueva</label><input type="password" id="np1" autocomplete="new-password"></div>
+      <div class="field"><label for="np2">Repite la clave</label><input type="password" id="np2" autocomplete="new-password"></div>
+      <div class="field"><label></label><button id="setpw">Guardar clave fija</button></div>
+      <div class="meta">De 8 a 64 caracteres, sin espacios. Queda guardada: no vuelve a cambiar sola.</div>
+    </div>
+    <h2>Reproducción y arranque</h2>
+    <div class="card">
+      <div class="field"><label for="player">Reproductor</label><select id="player"></select></div>
+      <div class="field"><label for="always">Siempre activo</label><input type="checkbox" id="always"> <span class="meta">Arranca con la TV y no se apaga por inactividad (usa más memoria).</span></div>
+      <div class="field"><label></label><button id="savest">Guardar ajustes</button></div>
+    </div>
+    <h2>Estado</h2>
+    <div class="card meta" id="sys"></div>
+    <div id="smsg" role="status"></div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const H = { 'Content-Type': 'application/json', 'X-Portal': '1' };
+const fmt = (b) => b >= 1e9 ? (b/1e9).toFixed(2)+' GB' : b >= 1e6 ? (b/1e6).toFixed(0)+' MB' : (b/1e3).toFixed(0)+' KB';
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function say(sel, text, ok) { const m = $(sel); m.textContent = text; m.className = ok ? 'okc' : 'err'; }
+async function api(url, body) {
+  const r = await fetch(url, body === undefined ? {} : { method: 'POST', headers: H, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ('Error ' + r.status));
+  return j;
+}
+
+// ---------------------------------------------------------------- pestañas
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + b.dataset.tab));
+  if (b.dataset.tab === 'bt') loadButtons(); if (b.dataset.tab === 'st') loadSettings();
+}));
+
+// ---------------------------------------------------------------- estado general
+async function refreshStatus() {
+  try {
+    const s = await api('/api/status');
+    const chips = [];
+    chips.push(`<span class="chip ${s.storage_ok ? 'ok' : 'bad'}">${s.storage_ok ? 'Almacenamiento OK' : 'Sin almacenamiento'}${s.storage_ok ? (s.storage_removable ? ' (USB)' : ' (interno)') : ''}</span>`);
+    chips.push(`<span class="chip">${s.free_gb} de ${s.total_gb} GB libres</span>`);
+    chips.push(`<span class="chip ${s.engine_running ? 'ok' : 'warn'}">Motor ${s.engine_running ? 'activo' : 'detenido'}</span>`);
+    chips.push(`<span class="chip">IP ${esc(s.lan)}</span>`);
+    $('#chips').innerHTML = chips.join('');
+    $('#banner').innerHTML = s.storage_ok ? '' : `<div class="banner">⚠ ${esc(s.storage_note || 'El almacenamiento no está disponible.')} Las descargas se reanudan solas cuando vuelva.</div>`;
+    $('#sys').innerHTML = `Carpeta de descargas: <b>${esc(s.download_dir || '—')}</b><br>Espacio: ${s.free_gb} GB libres de ${s.total_gb} GB<br>Mínimo para aceptar descargas: ${s.min_free_gb.toFixed(1)} GB`;
+  } catch (e) { $('#chips').innerHTML = '<span class="chip bad">Sin conexión con la TV</span>'; }
+}
+
+// ---------------------------------------------------------------- descargas
+$('#f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const magnet = $('#magnet').value.trim(); if (!magnet) return;
+  $('#add').disabled = true;
+  try { await api('/api/add', { magnet }); $('#magnet').value = ''; say('#msg', 'Agregado. Obteniendo datos...', true); refreshDl(); }
+  catch (err) { say('#msg', err.message, false); }
+  $('#add').disabled = false;
+});
+
+async function refreshDl() {
+  try {
+    // Por separado: una biblioteca lenta no debe congelar la lista de descargas.
+    api('/api/downloads').then(renderDownloads).catch(() => {});
+    api('/api/library').then(renderLibrary).catch(() => {});
+  } catch (e) { /* reintenta */ }
+}
+
+const OPEN = new Set();   // descargas con el panel de detalles abierto
+const STATES = { active: 'Descargando', waiting: 'En espera', storage: 'Esperando el USB', complete: 'Completa', paused: 'Pausada', checking: 'Verificando archivos', metadata: 'Obteniendo datos' };
+const eta = (s) => s < 0 ? '—' : s < 60 ? s + ' s' : s < 3600 ? Math.round(s/60) + ' min' : Math.floor(s/3600) + ' h ' + Math.round((s%3600)/60) + ' min';
+
+function renderDownloads(list) {
+  if (!list.length) { $('#dl').innerHTML = '<div class="empty">No hay descargas.</div>'; return; }
+  $('#dl').innerHTML = list.map(d => {
+    const pct = d.total ? Math.min(100, d.done / d.total * 100) : 0;
+    const est = STATES[d.status] || d.status;
+    const info = d.status === 'active' ? `${fmt(d.speed)}/s · quedan ${eta(d.eta)} · ${d.peers} conexiones` : est;
+    const paused = d.status === 'paused', done = d.status === 'complete';
+    const g = esc(d.gid);
+    return `<div class="card ${done ? 'done' : ''}" data-card="${g}"><div class="row">
+      <div class="grow"><div class="name" title="${esc(d.name)}">${esc(d.name)}</div>
+      <div class="prog"><i style="width:${pct.toFixed(1)}%"></i></div>
+      <div class="meta">${pct.toFixed(0)}% · ${fmt(d.done)} de ${d.total ? fmt(d.total) : '?'} · ${info}</div></div></div>
+      <div class="acts">
+        ${done ? '' : `<button data-act="${paused ? 'resume' : 'pause'}" data-gid="${g}">${paused ? 'Reanudar' : 'Pausar'}</button>`}
+        ${done ? '' : `<button class="ghost" data-act="peers" data-gid="${g}">Pedir más peers</button>`}
+        <button class="ghost" data-det="${g}">${OPEN.has(d.gid) ? 'Ocultar detalles' : 'Detalles'}</button>
+        ${done ? `<button class="ghost" data-act="remove" data-gid="${g}">Quitar de la lista</button>` : ''}
+        <button class="bad" data-act="cancel" data-gid="${g}">${done ? 'Borrar todo' : 'Cancelar y borrar'}</button>
+      </div>
+      <div class="det" data-detbox="${g}" style="display:${OPEN.has(d.gid) ? 'block' : 'none'}"></div></div>`;
+  }).join('');
+  OPEN.forEach(g => loadDetails(g));
+}
+
+async function loadDetails(gid) {
+  const box = document.querySelector(`[data-detbox="${gid}"]`); if (!box) return;
+  try {
+    const d = await api('/api/torrent?gid=' + gid);
+    const files = (d.files || []).map(f => `<div class="frow"><span class="fn" title="${esc(f.name)}" style="${f.wanted ? '' : 'opacity:.45'}">${esc(f.name)}</span><span class="meta">${f.wanted ? Math.round(f.size ? f.done * 100 / f.size : 0) + '% · ' + fmt(f.size) : 'Omitido'}</span><button class="ghost" style="padding:3px 9px" data-file="${f.i}" data-gid="${gid}" data-wanted="${f.wanted ? 0 : 1}">${f.wanted ? 'Omitir' : 'Incluir'}</button></div>`).join('') || '<span class="meta">Aún sin datos del enlace.</span>';
+    box.innerHTML = `<div class="grid"><div>Bajada<b>${fmt(d.speed)}/s</b></div><div>Subida<b>${fmt(d.up)}/s</b></div><div>Quedan<b>${d.state === 'complete' ? '—' : eta(d.eta)}</b></div><div>Descargado<b>${fmt(d.downloaded)}</b></div><div>Subido<b>${fmt(d.uploaded)}</b></div><div>Conexiones<b>${d.peers} (${d.seeds} semillas)</b></div><div>En el enjambre<b>${d.swarmPeers} peers · ${d.swarmSeeds} semillas</b></div><div>Cola<b>#${d.queue + 1}</b></div></div>
+      <div class="acts"><button class="ghost" data-act="sequential" data-on="${d.sequential ? 0 : 1}" data-gid="${gid}">Orden secuencial: ${d.sequential ? 'Sí (desactivar)' : 'No (activar)'}</button>
+        <button class="ghost" data-act="recheck" data-gid="${gid}">Verificar archivos</button><button class="ghost" data-act="top" data-gid="${gid}">Subir en la cola</button></div>
+      <h3>Archivos</h3>${files}
+      <h3>Trackers</h3>${(d.trackers || []).map(t => `<div class="meta">${t.ok ? '●' : '○'} ${esc(t.url)}</div>`).join('') || '<span class="meta">Sin trackers (se usa DHT)</span>'}
+      <h3>Mejores conexiones</h3>${(d.peerList || []).map(p => `<div class="meta">${esc(p.ip)} · ${esc(p.client)} · ↓ ${fmt(p.down)}/s · ↑ ${fmt(p.up)}/s · ${p.progress}%</div>`).join('') || '<span class="meta">Ninguna por ahora</span>'}
+      <div class="meta" style="margin-top:8px">Guardado en: ${esc(d.savePath)}</div>`;
+  } catch (e) { box.textContent = e.message; }
+}
+
+function renderLibrary(list) {
+  if (!list.length) { $('#lib').innerHTML = '<div class="empty">Aún no hay videos descargados.</div>'; return; }
+  $('#lib').innerHTML = list.map(v => `<div class="card"><div class="row">
+      <div class="grow"><div class="name" title="${esc(v.path)}">${esc(v.name)}</div><div class="meta">${fmt(v.size)}</div></div>
+      <button data-play="${esc(v.path)}">Ver en la TV</button>
+      <a href="${esc(v.url)}" target="_blank" rel="noopener"><button class="ghost" type="button">Abrir aquí</button></a>
+      <button class="bad" data-del="${esc(v.path)}">Eliminar</button></div></div>`).join('');
+}
+
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  try {
+    if (t.dataset.det) { const g = t.dataset.det; OPEN.has(g) ? OPEN.delete(g) : OPEN.add(g); refreshDl(); return; }
+    if (t.dataset.file !== undefined) { await api('/api/torrent', { gid: t.dataset.gid, action: 'file', index: +t.dataset.file, wanted: t.dataset.wanted === '1' }); loadDetails(t.dataset.gid); return; }
+    if (t.dataset.act) {
+      const a = t.dataset.act, g = t.dataset.gid;
+      if (a === 'cancel' && !confirm('¿Cancelar y borrar lo descargado? No se puede deshacer.')) return;
+      const body = { gid: g, action: a }; if (a === 'sequential') body.on = t.dataset.on === '1';
+      await api('/api/torrent', body);
+      if (a === 'cancel' || a === 'remove') OPEN.delete(g);
+      if (a === 'peers') say('#msg', 'Buscando más conexiones...', true);
+      refreshDl(); return;
+    }
+    if (t.dataset.rm) { await api('/api/remove', { gid: t.dataset.rm }); refreshDl(); }
+    if (t.dataset.play) { t.disabled = true; await api('/api/play', { path: t.dataset.play }); say('#msg', 'Enviado a la TV.', true); t.disabled = false; }
+    if (t.dataset.del && confirm('¿Eliminar este archivo del disco? No se puede deshacer.')) { await api('/api/delete', { path: t.dataset.del }); refreshDl(); }
+  } catch (err) { say('#msg', err.message, false); t.disabled = false; }
+});
+
+// ---------------------------------------------------------------- botones
+let BT = { mappings: [], apps: [], inputs: [] };
+const ACTIONS = [['app', 'Abrir una app'], ['input', 'Cambiar de entrada'], ['settings', 'Abrir Ajustes'], ['home', 'Ir al inicio (nuestro launcher)'],
+                 ['google_home', 'Abrir el launcher de Google'], ['block', 'No hacer nada (bloquear)']];
+
+function labelFor(m) {
+  if (m.type === 'app') return 'Abrir ' + ((BT.apps.find(a => a.pkg === m.arg) || {}).label || m.arg);
+  if (m.type === 'input') return 'Cambiar a ' + ((BT.inputs.find(i => i.id === m.arg) || {}).label || m.arg);
+  return { settings: 'Abrir Ajustes', home: 'Ir al inicio', google_home: 'Abrir el launcher de Google', block: 'Libre (sin asignar)' }[m.type] || m.type;
+}
+
+async function loadButtons() {
+  try {
+    BT = await api('/api/buttons');
+    const st = BT.status || {};
+    $('#bmsg').textContent = '';
+    if (st.serviceEnabled === false) say('#bmsg', 'El servicio de botones de la TV está apagado: los cambios se guardan pero no funcionarán hasta reiniciar la TV.', false);
+    renderButtons();
+  } catch (e) { say('#bmsg', e.message, false); }
+}
+
+function option(sel, value, text, selected) { const o = document.createElement('option'); o.value = value; o.textContent = text; if (selected) o.selected = true; sel.appendChild(o); }
+
+function renderButtons() {
+  const tb = $('#bt tbody'); tb.innerHTML = '';
+  $('#btempty').style.display = BT.mappings.length ? 'none' : 'block';
+  BT.mappings.forEach((m, i) => {
+    const tr = document.createElement('tr');
+    const k = document.createElement('td'); k.className = 'key'; k.textContent = m.keyName; tr.appendChild(k);
+    const a = document.createElement('td'); const sa = document.createElement('select');
+    ACTIONS.forEach(([v, t]) => option(sa, v, t, v === m.type)); a.appendChild(sa); tr.appendChild(a);
+    const d = document.createElement('td'); const sd = document.createElement('select'); d.appendChild(sd); tr.appendChild(d);
+    const fillDest = () => {
+      sd.innerHTML = ''; sd.style.display = (m.type === 'app' || m.type === 'input') ? '' : 'none';
+      if (m.type === 'app') BT.apps.forEach(x => option(sd, x.pkg, x.label, x.pkg === m.arg));
+      if (m.type === 'input') BT.inputs.forEach(x => option(sd, x.id, x.label, x.id === m.arg));
+    };
+    fillDest();
+    sa.addEventListener('change', () => { m.type = sa.value; m.arg = ''; fillDest(); if (sd.options.length) m.arg = sd.value; m.label = labelFor(m); });
+    sd.addEventListener('change', () => { m.arg = sd.value; m.label = labelFor(m); });
+    const x = document.createElement('td'); const rm = document.createElement('button'); rm.className = 'bad'; rm.textContent = 'Quitar';
+    rm.addEventListener('click', () => { BT.mappings.splice(i, 1); renderButtons(); }); x.appendChild(rm); tr.appendChild(x);
+    tb.appendChild(tr);
+  });
+}
+
+let learning = null;
+$('#learn').addEventListener('click', async () => {
+  if (learning) return;
+  try {
+    await api('/api/buttons/learn', {});
+    $('#learnhint').textContent = 'Pulsa ahora el botón del control de la TV... (20 s)';
+    let tries = 0;
+    learning = setInterval(async () => {
+      tries++;
+      try {
+        const r = await api('/api/buttons/learned');
+        if (r.keyCode !== undefined) {
+          clearInterval(learning); learning = null; $('#learnhint').textContent = '';
+          if (r.forbidden) { say('#bmsg', 'Ese botón no se puede reasignar: lo necesitas para navegar.', false); return; }
+          if (BT.mappings.some(m => m.keyCode === r.keyCode && m.scanCode === r.scanCode)) { say('#bmsg', r.keyName + ' ya está en la lista.', false); return; }
+          BT.mappings.push({ keyCode: r.keyCode, scanCode: r.scanCode, keyName: r.keyName, type: 'block', arg: '', label: 'Libre (sin asignar)' });
+          renderButtons(); say('#bmsg', 'Botón ' + r.keyName + ' añadido. Elige su acción y guarda los cambios.', true);
+        } else if (tries > 22 || r.pending === false) {
+          clearInterval(learning); learning = null; $('#learnhint').textContent = ''; say('#bmsg', 'No se detectó ninguna pulsación.', false);
+        }
+      } catch (e) { clearInterval(learning); learning = null; say('#bmsg', e.message, false); }
+    }, 1000);
+  } catch (e) { say('#bmsg', e.message, false); }
+});
+
+$('#savebt').addEventListener('click', async () => {
+  BT.mappings.forEach(m => { m.label = labelFor(m); });
+  try { const r = await api('/api/buttons', { list: BT.mappings }); say('#bmsg', 'Guardado (' + r.count + ' botones).', true); }
+  catch (e) { say('#bmsg', e.message, false); }
+});
+
+// ---------------------------------------------------------------- ajustes
+async function loadSettings() {
+  try {
+    const s = await api('/api/settings'); const sel = $('#player'); sel.innerHTML = '';
+    Object.entries(s.players).forEach(([pkg, name]) => option(sel, pkg, name, pkg === s.player));
+    $('#always').checked = s.alwaysOn; refreshStatus();
+  } catch (e) { say('#smsg', e.message, false); }
+}
+$('#savest').addEventListener('click', async () => {
+  try { await api('/api/settings', { player: $('#player').value, alwaysOn: $('#always').checked }); say('#smsg', 'Ajustes guardados.', true); }
+  catch (e) { say('#smsg', e.message, false); }
+});
+$('#setpw').addEventListener('click', async () => {
+  const a = $('#np1').value, b = $('#np2').value;
+  if (a !== b) { say('#smsg', 'Las dos claves no coinciden.', false); return; }
+  try {
+    await api('/api/password', { password: a });
+    say('#smsg', 'Clave guardada. El navegador te la pedirá de nuevo.', true);
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) { say('#smsg', e.message, false); }
+});
+
+async function refreshMode() {
+  try { const m = await api('/api/mode'); const b = $('#modebtn'); b.classList.toggle('on', m.downloadMode); b.textContent = m.downloadMode ? 'Modo descarga ACTIVO · cancelar' : 'Modo descarga'; } catch (e) {}
+}
+$('#modebtn').addEventListener('click', async () => {
+  const on = !$('#modebtn').classList.contains('on');
+  if (on && !confirm('La pantalla de la TV se apagará y quedará en reposo bajando tus descargas. Al terminar se deja apagar. ¿Activar?')) return;
+  try { await api('/api/mode', { on }); say('#msg', on ? 'Modo descarga activado: la TV apagará la pantalla.' : 'Modo descarga cancelado.', true); } catch (e) { say('#msg', e.message, false); }
+  refreshMode();
+});
+
+refreshStatus(); refreshDl(); refreshMode();
+setInterval(refreshMode, 5000);
+setInterval(() => { refreshStatus(); if ($('#p-dl').classList.contains('on')) refreshDl(); }, 3000);
+</script>
+</body>
+</html>

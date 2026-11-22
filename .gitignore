@@ -1,0 +1,11 @@
+build/
+.gradle/
+local.properties
+*.log
+.idea/
+.DS_Store
+*.apk
+*.keystore
+*.jks
+# Old Mac-side prototype with runtime credentials; superseded by torrent/
+portal/

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.software.leanback" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!-- Solo apps firmadas con la misma clave (la app de Descargas) pueden configurar los botones. -->
+    <permission
+        android:name="app.tvlauncher.permission.CONFIG"
+        android:protectionLevel="signature" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Solo para que la app pueda activar su propio servicio de botones (se concede por ADB). -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.Launcher">
+
+        <!-- Launcher propio. HOME con prioridad por defecto: el sistema sigue usando el de Google para la tecla HOME. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:resumeWhilePausing="true"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ButtonsActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+
+        <provider
+            android:name=".ConfigProvider"
+            android:authorities="app.tvlauncher.config"
+            android:exported="true"
+            android:permission="app.tvlauncher.permission.CONFIG" />
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".KeyMapService"
+            android:exported="true"
+            android:label="Botones del control"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/key_service" />
+        </service>
+    </application>
+</manifest>

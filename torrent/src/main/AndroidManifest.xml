@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:installLocation="auto">
+
+    <uses-feature android:name="android.software.leanback" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Para configurar los botones del control en el launcher (solo funciona con la misma firma). -->
+    <uses-permission android:name="app.tvlauncher.permission.CONFIG" />
+
+    <application
+        android:allowBackup="false"
+        android:label="Descargas"
+        android:icon="@drawable/ic_downloads"
+        android:banner="@drawable/banner_downloads"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.Downloads">
+
+        <activity android:name=".TorrentDetailActivity" android:exported="false" android:screenOrientation="landscape" />
+
+        <activity
+            android:name=".DownloadsActivity"
+            android:exported="true"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Recibe enlaces magnet abiertos desde otras apps (o con adb) y los agrega. -->
+        <activity
+            android:name=".MagnetActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="magnet" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".TorrentService"
+            android:exported="false" />
+    </application>
+</manifest>
