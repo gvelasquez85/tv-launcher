@@ -100,6 +100,14 @@
       <div class="field"><label for="always">Siempre activo</label><input type="checkbox" id="always"> <span class="meta">Arranca con la TV y no se apaga por inactividad (usa más memoria).</span></div>
       <div class="field"><label></label><button id="savest">Guardar ajustes</button></div>
     </div>
+    <h2>Sugerencias del launcher (TMDB)</h2>
+    <div class="card">
+      <div class="field"><label for="tkey">Clave API v3 de TMDB</label><input type="password" id="tkey" autocomplete="off" placeholder="(sin cambios)"></div>
+      <div class="field"><label for="treg">País (región)</label><input type="text" id="treg" maxlength="2" placeholder="US, CO, ES..." style="max-width:90px"></div>
+      <div class="field"><label for="tlang">Idioma</label><input type="text" id="tlang" placeholder="en-US, es-CO..." style="max-width:140px"></div>
+      <div class="field"><label></label><button id="savetmdb">Guardar</button></div>
+      <div class="meta" id="tmeta">Clave gratuita en themoviedb.org → Configuración → API.</div>
+    </div>
     <h2>Estado</h2>
     <div class="card meta" id="sys"></div>
     <div id="smsg" role="status"></div>
@@ -313,9 +321,16 @@ async function loadSettings() {
   try {
     const s = await api('/api/settings'); const sel = $('#player'); sel.innerHTML = '';
     Object.entries(s.players).forEach(([pkg, name]) => option(sel, pkg, name, pkg === s.player));
-    $('#always').checked = s.alwaysOn; refreshStatus();
+    $('#always').checked = s.alwaysOn; refreshStatus(); loadTmdb();
   } catch (e) { say('#smsg', e.message, false); }
 }
+async function loadTmdb() {
+  try { const t = await api('/api/tmdb'); $('#treg').value = t.region || ''; $('#tlang').value = t.lang || ''; $('#tmeta').textContent = (t.hasKey ? 'Clave configurada. ' : 'Falta la clave. ') + 'Clave gratuita en themoviedb.org → Configuración → API.'; } catch (e) {}
+}
+$('#savetmdb').addEventListener('click', async () => {
+  try { await api('/api/tmdb', { key: $('#tkey').value.trim(), region: $('#treg').value.trim(), lang: $('#tlang').value.trim() }); $('#tkey').value = ''; say('#smsg', 'Guardado. Las sugerencias se recargan solas.', true); loadTmdb(); }
+  catch (e) { say('#smsg', e.message, false); }
+});
 $('#savest').addEventListener('click', async () => {
   try { await api('/api/settings', { player: $('#player').value, alwaysOn: $('#always').checked }); say('#smsg', 'Ajustes guardados.', true); }
   catch (e) { say('#smsg', e.message, false); }

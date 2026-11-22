@@ -29,10 +29,25 @@ object Store {
     fun alwaysOn(c: Context): Boolean = prefs(c).getBoolean("alwaysOn", false)
     fun setAlwaysOn(c: Context, on: Boolean) { prefs(c).edit().putBoolean("alwaysOn", on).apply() }
 
-    /** Reproductor con el que se abren los videos. Kodi se ve limpio en esta TV; VLC sale con franjas verdes. */
-    val PLAYERS = linkedMapOf("org.xbmc.kodi" to "Kodi", "org.videolan.vlc" to "VLC")
-    fun player(c: Context): String = prefs(c).getString("player", null)?.takeIf { it in PLAYERS } ?: "org.xbmc.kodi"
-    fun setPlayer(c: Context, pkg: String) { if (pkg in PLAYERS) prefs(c).edit().putString("player", pkg).apply() }
+    /** Known video players. The empty id means "let Android ask" (system chooser). */
+    val KNOWN_PLAYERS = linkedMapOf("org.xbmc.kodi" to "Kodi", "org.videolan.vlc" to "VLC", "com.mxtech.videoplayer.ad" to "MX Player",
+        "com.brouken.player" to "Just Player", "org.jellyfin.androidtv" to "Jellyfin")
+
+    /** Players actually installed on this TV, plus the system chooser. */
+    fun players(c: Context): LinkedHashMap<String, String> {
+        val pm = c.packageManager
+        val out = LinkedHashMap<String, String>()
+        KNOWN_PLAYERS.forEach { (pkg, name) -> if (runCatching { pm.getPackageInfo(pkg, 0) }.isSuccess) out[pkg] = name }
+        out[""] = "Elegir al reproducir"
+        return out
+    }
+
+    /** Chosen player; if none was chosen, the first installed one, else the system chooser. */
+    fun player(c: Context): String {
+        val all = players(c)
+        return prefs(c).getString("player", null)?.takeIf { it in all } ?: all.keys.first()
+    }
+    fun setPlayer(c: Context, pkg: String) { if (pkg in players(c)) prefs(c).edit().putString("player", pkg).apply() }
 
     /** Hashes de torrents pausados por el usuario y de los que bajan en orden secuencial (se recuerdan entre reinicios). */
     @Synchronized fun flagged(c: Context, key: String): Set<String> = prefs(c).getStringSet(key, emptySet()) ?: emptySet()

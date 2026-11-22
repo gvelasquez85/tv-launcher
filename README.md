@@ -2,43 +2,71 @@
 
 🇪🇸 [Leer en español](README.es.md)
 
-A custom launcher and an on-TV torrent downloader for a **Sony BRAVIA (Android TV 9)**, plus a web manager you open from your computer or phone.
+A custom launcher and an on-TV torrent downloader for **Android TV**, installed from your computer in a few minutes.
+Developed and tested on a Sony BRAVIA (Android 9); the installer is generic, but see [Compatibility](#compatibility).
 
-Two Android apps in one Gradle project:
+- **Launcher** (`app.tvlauncher`): apps and HDMI inputs as buttons, popular titles per streaming service with backdrop, synopsis, cast and rating (TMDB), remappable remote-control buttons.
+- **Downloads** (`app.tvtorrent`): downloads with a built-in torrent engine **on the TV itself**, saves to a USB drive, plays with Kodi/VLC/your player, and serves a **web manager** you open from any computer or phone on your network (downloads, remote buttons, settings).
 
-| Module | Package | What it is |
-|---|---|---|
-| `app/` | `app.tvlauncher` | Home screen: apps, HDMI inputs as buttons, popular titles per streaming platform with backdrops, synopsis, cast and rating (TMDB). Also remaps remote-control buttons. |
-| `torrent/` | `app.tvtorrent` | Downloads and plays content **on the TV itself** (libtorrent4j engine, USB storage) and serves a web manager. |
+> The UI strings of both apps are in Spanish for now. Use the downloader only for content you have the right to download and watch.
 
-> The UI strings of both apps are in Spanish. Everything else (code, docs) is bilingual.
-> Use the downloader only for content you have the right to download and watch.
+## Quick start
+
+**1. Enable network debugging on the TV.**
+Settings → Device Preferences → About → tap *Build* seven times → back → Developer options → turn on *USB debugging* / *Network debugging* (wording varies by brand). Note the TV's IP address (Settings → Network).
+
+**2. Run the installer on your computer** (Windows, macOS or Linux; needs only Python 3.8+):
+
+```bash
+git clone https://github.com/gvelasquez85/tv-launcher.git
+cd tv-launcher
+python3 install.py            # on Windows: py install.py
+```
+
+The wizard will:
+1. find ADB (or download Google's official platform-tools into `./.tools`) and connect to your TV (it can scan your network);
+2. get the APKs (from `./dist`, the latest GitHub Release, or build them from source);
+3. ask for a free [TMDB API key](https://www.themoviedb.org/settings/api), your country and language;
+4. install both apps, enable the remote-button service and open them on the TV;
+5. optionally disable known telemetry/promo apps (reversible).
+
+Useful options: `--tv 192.168.1.50`, `--tmdb-key KEY --region US --lang en-US -y` (non-interactive), `--build` (compile from source), `--dry-run`.
+Other commands: `status`, `debloat`, `revert`, `uninstall`.
+
+**3. Open the manager.** The *Descargas* app on the TV shows the address (`http://<TV_IP>:8800`), user `admin` and a password; set your own fixed one under *Ajustes*.
+
+## Compatibility
+
+| | |
+|---|---|
+| Android | 9 (API 28) or newer |
+| CPU | ARM 32/64-bit (the torrent engine ships ARM libraries only) |
+| Tested | Sony BRAVIA 4K GB (Android 9). Other brands should work but are untested: please open an issue. |
+| Computer | Windows, macOS, Linux. Same Wi-Fi/LAN as the TV |
+
+Things that depend on the TV, not on this project: the Google launcher keeps the HOME key (open this launcher from Apps → "Inicio" or map a remote button to it); on some brands the accessibility-based button remapping may be restricted; the screen-off call used by *Download mode* (`GLOBAL_ACTION_LOCK_SCREEN`) may behave differently on other firmware.
+
+## Build from source
+
+Needs JDK 17 and the Android SDK.
+
+```bash
+# local.properties (never committed):
+#   sdk.dir=/path/to/android-sdk
+#   tmdb.key=...  region=US  lang=en-US     # optional build-time defaults; normally set on the TV at run time
+./gradlew :app:assembleRelease :torrent:assembleRelease
+```
+
+Both APKs must be signed with the **same key** (they talk through a signature-protected ContentProvider). Without configuration, builds use your machine's debug key (fine for personal use). For releases set `signing.keystore`, `signing.storePassword`, `signing.keyAlias`, `signing.keyPassword` in `local.properties` (or the `TVL_*` environment variables used by the CI workflow in `.github/workflows/release.yml`; pushing a `v*` tag builds and publishes the APKs).
 
 ## Launcher (`app/`)
 
 - Home with apps, HDMI inputs, "continue watching" (opens the Google launcher) and Settings.
-- Focusing an app shows what is popular on that platform (TMDB discover by watch provider; region and language are set in `local.properties`), with backdrop, synopsis, cast, rating and runtime/seasons.
+- Focusing an app shows what is popular on that platform (TMDB discover by watch provider; region and language are set on the TV: installer, web manager → Settings), with backdrop, synopsis, cast, rating and runtime/seasons.
 - Stremio titles deep-link to the exact page (`stremio:///detail/<series|movie>/<imdb>`). Other platforms expose no public id, so only the app opens.
 - Remote-control buttons are remappable through an accessibility service (it only sees key events; it does not read screen content and logs nothing): open an app, switch input, open Settings, go home, or "do nothing".
 - Known limit: a third-party launcher cannot read other apps' "continue watching" (system-only permission), and the HOME key itself cannot be overridden.
 
-### Build and install
-
-```bash
-# local.properties (not committed):
-#   sdk.dir=/path/to/android-sdk
-#   tmdb.key=YOUR_TMDB_V3_API_KEY
-#   tmdb.region=CO        (optional)
-#   tmdb.lang=es-CO       (optional)
-export JAVA_HOME=/path/to/jdk17 ANDROID_HOME=/path/to/android-sdk
-./gradlew :app:assembleDebug :torrent:assembleDebug
-
-adb connect <TV_IP>:5555
-adb -s <TV_IP>:5555 install -r app/build/outputs/apk/debug/app-debug.apk
-adb -s <TV_IP>:5555 install -r --install-location 1 torrent/build/outputs/apk/debug/torrent-debug.apk
-```
-
-Both APKs must be signed with the same key (the apps talk through a signature-protected ContentProvider).
 
 - Reinstalling `app.tvlauncher` makes Android disable its accessibility service. Re-enable it with
   `adb shell settings put secure enabled_accessibility_services app.tvlauncher/app.tvlauncher.KeyMapService`
@@ -72,13 +100,6 @@ Password (Basic auth), `X-Portal` header on every action (anti-CSRF), Host-heade
 
 Set it in the TV: Settings → Network → IP settings → Static. Pick an address outside your router's DHCP pool.
 
-## Reverting the system tweaks
-
-`revertir_tv.sh` re-enables the Sony/Google packages that were disabled (never deleted) and restores animation scales:
-
-```bash
-bash revertir_tv.sh <TV_IP>:5555
-```
 
 ## Lessons learned
 

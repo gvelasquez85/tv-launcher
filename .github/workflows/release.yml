@@ -1,0 +1,51 @@
+name: Build APKs
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Decode signing key (optional)
+        env:
+          KEYSTORE_B64: ${{ secrets.TVL_KEYSTORE_B64 }}
+        run: |
+          # Both apps must share one signing key. Add the secrets below to keep the same key across releases:
+          #   TVL_KEYSTORE_B64, TVL_KEYSTORE_PASSWORD, TVL_KEY_ALIAS, TVL_KEY_PASSWORD
+          # Without them the APKs are signed with a throwaway debug key (fine for a first install, but upgrading
+          # from a release signed with another key requires uninstalling first; the installer offers that).
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "TVL_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          fi
+      - name: Build
+        env:
+          TVL_KEYSTORE_PASSWORD: ${{ secrets.TVL_KEYSTORE_PASSWORD }}
+          TVL_KEY_ALIAS: ${{ secrets.TVL_KEY_ALIAS }}
+          TVL_KEY_PASSWORD: ${{ secrets.TVL_KEY_PASSWORD }}
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          ./gradlew :app:assembleRelease :torrent:assembleRelease --no-daemon
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/
+          cp torrent/build/outputs/apk/release/torrent-release.apk dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apks
+          path: dist/*.apk
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/*.apk --generate-notes --title "${GITHUB_REF_NAME}"

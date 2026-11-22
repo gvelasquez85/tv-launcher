@@ -65,7 +65,13 @@ object Catalog {
     private val mem = ConcurrentHashMap<Int, List<Title>>()
     private val waiters = HashMap<Int, MutableList<(List<Title>) -> Unit>>()
 
-    fun hasKey() = BuildConfig.TMDB_KEY.isNotBlank()
+    fun hasKey(ctx: Context) = Config.tmdbKey(ctx).isNotBlank()
+
+    /** Forgets cached suggestions (the key, region or language changed). */
+    fun reset(ctx: Context) {
+        mem.clear()
+        ctx.filesDir.listFiles()?.filter { it.name.startsWith("catalog_") }?.forEach { it.delete() }
+    }
 
     /**
      * Entrega SIEMPRE una respuesta en el hilo principal (lista vacia si no hay datos ni red),
@@ -73,7 +79,7 @@ object Catalog {
      */
     fun load(ctx: Context, providerId: Int, cb: (List<Title>) -> Unit) {
         mem[providerId]?.let { cb(it); return }
-        val file = File(ctx.filesDir, "catalog_v2_$providerId.json")   // v2: incluye el id de IMDb
+        val file = File(ctx.filesDir, "catalog_v2_${Config.region(ctx)}_${Config.lang(ctx)}_$providerId.json")   // v2: incluye el id de IMDb
         var stale = true
         if (file.exists()) {
             try {
@@ -85,7 +91,7 @@ object Catalog {
             } catch (_: Exception) { /* cache danada: se vuelve a pedir */ }
         }
         val hadCache = mem.containsKey(providerId)
-        if (!hasKey()) { if (!hadCache) cb(emptyList()); return }
+        if (!hasKey(ctx)) { if (!hadCache) cb(emptyList()); return }
         synchronized(waiters) {
             val running = waiters[providerId]
             if (running != null) {            // ya hay una consulta en curso: solo se suma a la espera
@@ -95,7 +101,7 @@ object Catalog {
             waiters[providerId] = mutableListOf<(List<Title>) -> Unit>().also { if (!hadCache) it.add(cb) }
         }
         pool.execute {
-            val result = try { fetch(providerId) } catch (_: Exception) { emptyList() }
+            val result = try { fetch(ctx, providerId) } catch (_: Exception) { emptyList() }
             if (result.isNotEmpty()) {
                 try { file.writeText(JSONArray(result.map { it.toJson() }).toString()) } catch (_: Exception) {}
                 mem[providerId] = result
@@ -113,8 +119,8 @@ object Catalog {
         return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(c.time)
     }
 
-    private fun get(path: String, query: String): JSONObject {
-        val url = "$API$path?api_key=${BuildConfig.TMDB_KEY}&language=${BuildConfig.LANG}&$query"
+    private fun get(ctx: Context, path: String, query: String): JSONObject {
+        val url = "$API$path?api_key=${Config.tmdbKey(ctx)}&language=${Config.lang(ctx)}&$query"
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 8000; c.readTimeout = 12000
         try {
@@ -123,36 +129,36 @@ object Catalog {
         } finally { c.disconnect() }
     }
 
-    private fun fetch(providerId: Int): List<Title> {
+    private fun fetch(ctx: Context, providerId: Int): List<Title> {
         data class Ref(val id: Int, val type: String, val pop: Double)
         val refs = mutableListOf<Ref>()
         if (providerId == 0) {
-            val r = get("/trending/all/week", "").getJSONArray("results")
+            val r = get(ctx, "/trending/all/week", "").getJSONArray("results")
             for (i in 0 until r.length()) {
                 val o = r.getJSONObject(i)
                 val t = o.optString("media_type")
                 if (t == "tv" || t == "movie") refs += Ref(o.getInt("id"), t, o.optDouble("popularity"))
             }
         } else {
-            val common = "watch_region=${BuildConfig.REGION}&with_watch_providers=$providerId" +
+            val common = "watch_region=${Config.region(ctx)}&with_watch_providers=$providerId" +
                 "&with_watch_monetization_types=flatrate%7Cfree%7Cads&sort_by=popularity.desc"
             // Series con episodios recientes y peliculas de los ultimos ~18 meses.
-            val tv = get("/discover/tv", "$common&air_date.gte=${date(60)}").getJSONArray("results")
-            val mv = get("/discover/movie", "$common&primary_release_date.gte=${date(540)}").getJSONArray("results")
+            val tv = get(ctx, "/discover/tv", "$common&air_date.gte=${date(60)}").getJSONArray("results")
+            val mv = get(ctx, "/discover/movie", "$common&primary_release_date.gte=${date(540)}").getJSONArray("results")
             for (i in 0 until minOf(tv.length(), 8)) tv.getJSONObject(i).let { refs += Ref(it.getInt("id"), "tv", it.optDouble("popularity")) }
             for (i in 0 until minOf(mv.length(), 8)) mv.getJSONObject(i).let { refs += Ref(it.getInt("id"), "movie", it.optDouble("popularity")) }
         }
         val top = refs.sortedByDescending { it.pop }.take(14)
-        return top.mapNotNull { runCatching { detail(it.id, it.type) }.getOrNull() }
+        return top.mapNotNull { runCatching { detail(ctx, it.id, it.type) }.getOrNull() }
     }
 
-    private fun detail(id: Int, type: String): Title? {
-        val o = get("/$type/$id", "append_to_response=credits,external_ids")
+    private fun detail(ctx: Context, id: Int, type: String): Title? {
+        val o = get(ctx, "/$type/$id", "append_to_response=credits,external_ids")
         var overview = o.optString("overview")
         if (overview.isBlank()) {
             // Sin traduccion: se usa el texto en ingles antes que dejarlo vacio.
             overview = runCatching {
-                val url = "$API/$type/$id?api_key=${BuildConfig.TMDB_KEY}&language=en-US"
+                val url = "$API/$type/$id?api_key=${Config.tmdbKey(ctx)}&language=en-US"
                 val c = URL(url).openConnection() as HttpURLConnection
                 c.connectTimeout = 8000; c.readTimeout = 12000
                 JSONObject(c.inputStream.bufferedReader().readText()).optString("overview")

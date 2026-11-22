@@ -9,3 +9,5 @@ local.properties
 *.jks
 # Old Mac-side prototype with runtime credentials; superseded by torrent/
 portal/
+dist/
+.tools/

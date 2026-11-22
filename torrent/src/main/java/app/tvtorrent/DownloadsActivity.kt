@@ -289,7 +289,7 @@ class DownloadsActivity : Activity() {
         val items = arrayOf(
             "Clave fija…",
             "Generar clave nueva",
-            "Reproductor: ${Store.PLAYERS[Store.player(this)]}",
+            "Reproductor: ${Store.players(this)[Store.player(this)]}",
             "Siempre activo: ${if (Store.alwaysOn(this)) "Sí" else "No"}"
         )
         dialog().setTitle("Ajustes").setItems(items) { _, w ->
@@ -300,10 +300,10 @@ class DownloadsActivity : Activity() {
                     .setPositiveButton("Generar") { _, _ -> bg.execute { Store.regeneratePassword(this); ui.post { refresh() } } }
                     .setNegativeButton("Cancelar", null).show()
                 2 -> {
-                    val keys = Store.PLAYERS.keys.toList()
+                    val keys = Store.players(this).keys.toList()
                     val next = keys[(keys.indexOf(Store.player(this)) + 1) % keys.size]
                     Store.setPlayer(this, next)
-                    Toast.makeText(this, "Reproductor: ${Store.PLAYERS[next]}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Reproductor: ${Store.players(this)[next]}", Toast.LENGTH_SHORT).show()
                 }
                 3 -> {
                     val on = !Store.alwaysOn(this)

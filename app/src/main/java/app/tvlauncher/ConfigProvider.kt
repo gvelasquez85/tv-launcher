@@ -57,6 +57,14 @@ class ConfigProvider : ContentProvider() {
                     reply(JSONObject().put("serviceEnabled", enabled.contains("app.tvlauncher/") && enabled.contains("KeyMapService"))
                         .put("mappings", KeyMap.all(ctx).size))
                 }
+                "tmdb_get" -> reply(JSONObject().put("hasKey", Config.tmdbKey(ctx).isNotBlank())
+                    .put("region", Config.region(ctx)).put("lang", Config.lang(ctx)))
+                "tmdb_set" -> {
+                    val o = JSONObject(arg ?: "{}")
+                    val err = Config.set(ctx, if (o.has("key")) o.optString("key") else null,
+                        if (o.has("region")) o.optString("region") else null, if (o.has("lang")) o.optString("lang") else null)
+                    reply(if (err == null) JSONObject().put("ok", true) else JSONObject().put("error", err))
+                }
                 "sleep" -> reply(JSONObject().put("ok", KeyMapService.sleepTv()))
                 "learn_start" -> { KeyMap.startLearn(); reply(JSONObject().put("ok", true)) }
                 "learn_result" -> reply(KeyMap.captured ?: JSONObject().put("pending", KeyMap.learner != null))

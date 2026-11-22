@@ -93,6 +93,8 @@ class Web(private val ctx: Context) : NanoHTTPD(Store.PORT) {
                 session.method == Method.POST && uri == "/api/buttons/learn" -> learnStart()
                 session.method == Method.GET && uri == "/api/buttons/learned" -> learnResult()
                 session.method == Method.POST && uri == "/api/password" -> password(body(session))
+                session.method == Method.GET && uri == "/api/tmdb" -> json(Response.Status.OK, launcher("tmdb_get") ?: JSONObject().put("error", NO_LAUNCHER))
+                session.method == Method.POST && uri == "/api/tmdb" -> saveTmdb(body(session))
                 session.method == Method.GET && uri == "/api/settings" -> settings()
                 session.method == Method.POST && uri == "/api/settings" -> saveSettings(body(session))
                 else -> text(Response.Status.NOT_FOUND, "text/plain", "No encontrado")
@@ -285,8 +287,15 @@ class Web(private val ctx: Context) : NanoHTTPD(Store.PORT) {
         else json(Response.Status.BAD_REQUEST, JSONObject().put("error", err))
     }
 
+    private fun saveTmdb(b: JSONObject): Response {
+        val o = JSONObject()
+        listOf("key", "region", "lang").forEach { if (b.has(it) && b.optString(it).isNotBlank()) o.put(it, b.optString(it)) }
+        val r = launcher("tmdb_set", o.toString()) ?: return json(Response.Status.INTERNAL_ERROR, JSONObject().put("error", NO_LAUNCHER))
+        return json(if (r.has("error")) Response.Status.BAD_REQUEST else Response.Status.OK, r)
+    }
+
     private fun settings(): Response {
-        val players = JSONObject().apply { Store.PLAYERS.forEach { (k, v) -> put(k, v) } }
+        val players = JSONObject().apply { Store.players(ctx).forEach { (k, v) -> put(k, v) } }
         return json(Response.Status.OK, JSONObject().put("player", Store.player(ctx)).put("players", players)
             .put("alwaysOn", Store.alwaysOn(ctx)))
     }
@@ -357,13 +366,13 @@ class Web(private val ctx: Context) : NanoHTTPD(Store.PORT) {
                 try {
                     android.os.StrictMode.setVmPolicy(android.os.StrictMode.VmPolicy.Builder().build())   // permite pasar file:// a otra app
                     ctx.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.fromFile(file), "video/*")
-                        .setPackage(Store.player(ctx)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).also { if (Store.player(ctx).isNotEmpty()) it.setPackage(Store.player(ctx)) })
                     return true
                 } catch (_: Exception) { /* se prueba por HTTP */ }
             }
             val url = mediaUrl("127.0.0.1", Store.PORT.toString(), rel)
-            val i = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(url), "video/*")
-                .setPackage(Store.player(ctx)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val i = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(url), "video/*").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .also { if (Store.player(ctx).isNotEmpty()) it.setPackage(Store.player(ctx)) }
             return try { ctx.startActivity(i); true } catch (_: Exception) {
                 try {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(url), "video/*")

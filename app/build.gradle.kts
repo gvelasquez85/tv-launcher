@@ -5,11 +5,18 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// La clave de TMDB vive en local.properties (fuera de git), nunca en el codigo.
+// TMDB key/region/language are set at run time on the TV (installer or web manager).
+// local.properties values (tmdb.key, region, lang) are only build-time defaults for developers.
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
+
+
+// One signing key for BOTH apps (they talk through a signature-protected ContentProvider).
+// Provide it with env vars / local.properties, or builds fall back to this machine's debug key.
+fun signingValue(env: String, prop: String): String? = System.getenv(env) ?: localProps.getProperty(prop)
+val sharedKeystore = signingValue("TVL_KEYSTORE", "signing.keystore")
 
 android {
     namespace = "app.tvlauncher"
@@ -27,12 +34,21 @@ android {
         buildConfigField("String", "LANG", "\"${localProps.getProperty("lang", "es-CO")}\"")
     }
 
+    signingConfigs {
+        if (sharedKeystore != null) create("shared") {
+            storeFile = file(sharedKeystore)
+            storePassword = signingValue("TVL_KEYSTORE_PASSWORD", "signing.storePassword")
+            keyAlias = signingValue("TVL_KEY_ALIAS", "signing.keyAlias")
+            keyPassword = signingValue("TVL_KEY_PASSWORD", "signing.keyPassword")
+        }
+    }
     buildFeatures {
         buildConfig = true
     }
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("shared") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

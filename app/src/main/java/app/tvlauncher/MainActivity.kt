@@ -304,7 +304,7 @@ class MainActivity : Activity() {
     private val showSourceRunnable = Runnable {
         val pkg = currentPkg ?: return@Runnable
         val label = currentLabel
-        val src = AppGroups.sourceOf(pkg)
+        val src = AppGroups.sourceOf(pkg, Config.region(this))
         val mine = ++request
         if (src.kind == Kind.NONE) {
             titlesLabel.text = ""
@@ -312,6 +312,10 @@ class MainActivity : Activity() {
             return@Runnable
         }
         titlesLabel.text = src.label
+        if (!Catalog.hasKey(this)) {
+            showEmpty(label, "Falta la clave gratuita de TMDB para mostrar sugerencias. Configúrala con el instalador (install.py) o en el administrador web de la TV → Ajustes.")
+            return@Runnable
+        }
         showEmpty(label, "Cargando sugerencias...")
         Catalog.load(this, src.providerId) { list ->
             if (mine != request) return@load   // el usuario ya se movio a otra app

@@ -41,6 +41,10 @@
             android:exported="false"
             android:screenOrientation="landscape" />
 
+        <!-- Headless: lets the installer (adb) store the TMDB key, region and language. -->
+        <activity android:name=".SetupActivity" android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" />
+
         <provider
             android:name=".ConfigProvider"
             android:authorities="app.tvlauncher.config"

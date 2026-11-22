@@ -42,8 +42,8 @@ object AppGroups {
         "co.movistar.go" to Pair(339, "Popular en Movistar TV")
     )
 
-    fun sourceOf(pkg: String): Source {
-        providers[pkg]?.let { return Source(Kind.PROVIDER, it.first, it.second + " (Colombia)") }
+    fun sourceOf(pkg: String, region: String = ""): Source {
+        providers[pkg]?.let { return Source(Kind.PROVIDER, it.first, it.second + if (region.isNotBlank()) " ($region)" else "") }
         if (pkg == "com.stremio.one") return Source(Kind.TRENDING, 0, "Tendencias de la semana (cualquier plataforma)")
         return Source(Kind.NONE)
     }
