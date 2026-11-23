@@ -361,8 +361,12 @@ class Web(private val ctx: Context) : NanoHTTPD(Store.PORT) {
         /** Abre el archivo en el reproductor elegido, servido por este mismo portal en 127.0.0.1. */
         fun playOnTv(ctx: Context, rel: String): Boolean {
             // Lo mas fiable: abrir el archivo directo del USB. Asi la reproduccion no depende de que el portal siga vivo.
+            // Solo en Android 10 o anterior y en almacenamiento externo (USB): desde Android 11 otras apps no pueden leer
+            // Android/data, y la memoria interna de esta app tampoco es legible por el reproductor. Alli se usa el portal.
             val file = (Engine.dir ?: Store.dirPath(ctx)?.let { File(it) })?.let { File(it, rel) }
-            if (file != null && file.isFile) {
+            val direct = android.os.Build.VERSION.SDK_INT < 30 && file != null && file.path.startsWith("/storage/") &&
+                !file.path.startsWith("/storage/emulated/")
+            if (direct && file != null && file.isFile) {
                 try {
                     android.os.StrictMode.setVmPolicy(android.os.StrictMode.VmPolicy.Builder().build())   // permite pasar file:// a otra app
                     ctx.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.fromFile(file), "video/*")

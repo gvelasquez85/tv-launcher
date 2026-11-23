@@ -160,7 +160,25 @@ def scan_for_adb():
         return [r for r in ex.map(probe, range(1, 255)) if r]
 
 
-def connect(adb, tv):
+def pair(adb, addr, code):
+    """Android 11+ (Google TV, newer Android TV): wireless debugging needs a one-time pairing."""
+    if not addr:
+        say("\nThis TV uses Android 11+ wireless debugging. On the TV: Developer options → Wireless debugging →")
+        say("'Pair device with pairing code'. It shows an IP:port and a 6-digit code.")
+        addr = ask("Pairing address (IP:port):")
+        code = code or ask("Pairing code:")
+    if not addr:
+        return
+    code = code or ask("Pairing code:")
+    rc, out = adb.raw("pair", addr, code, timeout=30)
+    say(out)
+    if "Successfully paired" not in out:
+        die("Pairing failed. The code expires quickly: open the pairing dialog again and retry.")
+
+
+def connect(adb, tv, pair_addr=None, pair_code=None):
+    if pair_addr:
+        pair(adb, pair_addr, pair_code)
     if not tv:
         _, out = adb.raw("devices")
         ready = [l.split()[0] for l in out.splitlines()[1:] if l.strip().endswith("device")]
@@ -174,7 +192,7 @@ def connect(adb, tv):
         else:
             say("\nNo TV found automatically. On the TV: Settings → Device Preferences → About → tap 'Build' 7 times,")
             say("then Developer options → enable 'USB debugging' / 'Network debugging' (wording varies by brand).")
-            tv = ask("TV IP address (Settings → Network):")
+            tv = ask("TV address (IP, or IP:port shown under 'Wireless debugging' on Android 11+):")
     if not tv:
         die("No TV address given.")
     if ":" not in tv:
@@ -193,6 +211,14 @@ def connect(adb, tv):
         else:
             break
     _, state = adb.raw("get-state", timeout=15)
+    if state.strip() != "device" and not pair_addr and ("refused" in out or "failed" in out or "unauthorized" in out or "offline" in state):
+        # Android 11+ needs pairing before the first connection.
+        if confirm("Could not connect. Is this an Android 11+ TV using 'Wireless debugging' (needs pairing)?", True):
+            pair(adb, None, None)
+            tv = ask("Now the CONNECT address shown on the main Wireless debugging screen (IP:port):", tv)
+            adb.raw("connect", tv, timeout=20)
+            adb.serial = tv
+            _, state = adb.raw("get-state", timeout=15)
     if state.strip() != "device":
         die(f"Could not reach the TV at {tv} ({state or out}). Check that TV and computer are on the same network and "
             "network debugging is enabled.")
@@ -448,6 +474,8 @@ def main():
     ap.add_argument("command", nargs="?", default="install", choices=["install", "status", "debloat", "revert", "uninstall"])
     ap.add_argument("--tv", help="TV address, e.g. 192.168.1.50 or 192.168.1.50:5555")
     ap.add_argument("--adb", help="path to the adb executable")
+    ap.add_argument("--pair", help="Android 11+ wireless debugging: pairing address shown on the TV, e.g. 192.168.1.50:37123")
+    ap.add_argument("--pair-code", help="the 6-digit pairing code shown on the TV")
     ap.add_argument("--apk-dir", help="folder containing app-release.apk and torrent-release.apk")
     ap.add_argument("--build", action="store_true", help="build the APKs from source instead of using prebuilt ones")
     ap.add_argument("--tmdb-key", help="TMDB v3 API key (or env TMDB_KEY)")
@@ -460,7 +488,7 @@ def main():
 
     adb = Adb(find_adb(args.adb))
     adb.raw("start-server")
-    connect(adb, args.tv)
+    connect(adb, args.tv, args.pair, args.pair_code)
     try:
         {"install": lambda: step_install(adb, args), "status": lambda: step_status(adb), "debloat": lambda: step_debloat(adb),
          "revert": lambda: step_revert(adb), "uninstall": lambda: step_uninstall(adb)}[args.command]()

@@ -44,6 +44,8 @@ Otros comandos: `status`, `debloat`, `revert`, `uninstall`.
 | Probado | Sony BRAVIA 4K GB (Android 9). Otras marcas deberían funcionar pero no están probadas: abre un issue. |
 | Computador | Windows, macOS, Linux, en la misma red que la TV |
 
+**Google TV / Android 11+:** la depuración inalámbrica pide un emparejamiento previo. En la TV: Opciones de desarrollador → Depuración inalámbrica → *Vincular dispositivo con código*, y ejecuta `python3 install.py --pair IP:PUERTO --pair-code 123456 --tv IP:PUERTO_CONEXION` (o corre el asistente y responde). Desde Android 11 la app reproduce los videos por su propio servidor web (otras apps no pueden leer carpetas de otra app), y sin USB descarga a la memoria interna de la TV. El soporte de Google TV está **sin probar** por ahora.
+
 Depende de la TV, no del proyecto: el launcher de Google conserva la tecla HOME (abre este desde Apps → "Inicio" o asígnale un botón del control); en algunas marcas la reasignación de botones por accesibilidad puede estar restringida; y la llamada para apagar la pantalla del *Modo descarga* (`GLOBAL_ACTION_LOCK_SCREEN`) puede comportarse distinto en otro firmware.
 
 ## Compilar desde el código

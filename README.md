@@ -44,6 +44,8 @@ Other commands: `status`, `debloat`, `revert`, `uninstall`.
 | Tested | Sony BRAVIA 4K GB (Android 9). Other brands should work but are untested: please open an issue. |
 | Computer | Windows, macOS, Linux. Same Wi-Fi/LAN as the TV |
 
+**Google TV / Android 11+:** wireless debugging needs a one-time pairing. On the TV: Developer options → Wireless debugging → *Pair device with pairing code*, then run `python3 install.py --pair IP:PORT --pair-code 123456 --tv IP:CONNECT_PORT` (or just run the wizard and answer the prompts). From Android 11 the app plays videos through its own web server (other apps cannot read another app's folders), and with no USB drive it simply downloads to the TV's internal storage. Google TV support is **untested** so far.
+
 Things that depend on the TV, not on this project: the Google launcher keeps the HOME key (open this launcher from Apps → "Inicio" or map a remote button to it); on some brands the accessibility-based button remapping may be restricted; the screen-off call used by *Download mode* (`GLOBAL_ACTION_LOCK_SCREEN`) may behave differently on other firmware.
 
 ## Build from source
